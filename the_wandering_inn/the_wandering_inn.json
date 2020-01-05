@@ -1,0 +1,57 @@
+{
+    "filename" : "the_wandering_inn",
+    "title" : "The Wandering Inn",
+    "authors" : [
+        {
+            "name" : "pirateaba",
+            "sort" : ""
+        }
+    ],
+    "cover" : "the_wandering_inn/images/cover.jpg",
+    "rights" : "",
+    "publisher" : "https://wanderinginn.com/",
+    "language" : "en",
+    "subjects" : [ "fantasy" ],
+    "contributors" : [
+        {
+            "name" : "",
+            "role" : ""
+        },
+        {
+            "name" : "",
+            "role" : ""
+        }
+    ],
+    "identifier" : {
+        "scheme" : "URL",
+        "value" : "https://wanderinginn.com"
+    },
+    "contents" : [
+        {
+            "type" : "title-page",
+            "source" : "the_wandering_inn/html/title.html"
+        },
+        {
+            "type" : "toc",
+            "source" : "the_wandering_inn/html/index.html"
+        },
+        {
+            "type" : "text",
+            "source" : "the_wandering_inn/html/wandering_inn*.html"
+        }
+    ],
+    "toc" : {
+        "depth" : 1,
+        "parse" : [ "text"],
+        "generate" : {
+            "title" : "Table of Contents"
+        }
+    },
+    "guide" : [
+        {
+            "type" : "toc",
+            "title" : "Table of Contents",
+            "href" : "the_wandering_inn/html/index.html"
+        }
+    ]
+}
