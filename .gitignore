@@ -5,3 +5,4 @@ ebookmaker/
 *.epub
 *.mobi
 the_wandering_inn/chapters.json
+recipients.txt
