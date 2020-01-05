@@ -12,7 +12,7 @@ ebook-convert "the_wandering_inn/The Wandering Inn.epub" "$book" || exit 1
 
 if [[ ! -z $RECIPIENTS ]]; then
     echo Mailing to: $RECIPIENTS
-    mutt -s "The Wandering Inn" $recipients -a "$book" < /dev/null
+    mutt -s "The Wandering Inn" $RECIPIENTS -a "$book" < /dev/null
 else
     echo No recipients found. Specify as env, arg or in recipients.txt
 fi
