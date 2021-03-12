@@ -7,6 +7,7 @@ Created on Mon Nov  5 01:19:53 2018
 
 from urllib.request import urlopen
 import os
+import argparse
 from bs4 import BeautifulSoup
 import json
 import codecs
@@ -34,7 +35,16 @@ html = '''<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/T
 global extracted_chapters
 extracted_chapters = dict()
 
-def get_chapter(chapter_id, url):
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--strip-color', dest='strip_color', type=bool, action='store_true'
+    )
+    parser.add_argument('--volume', default=None, nargs='+')
+    parser.add_argument('--chapter', default=None, nargs='+')
+    return parser.pares_args()
+
+def get_chapter(chapter_id, url, strip_color=False):
     global extracted_chapters
     if str(url) in extracted_chapters:
         print("Already downloaded {0}: Skipping".format(url))
@@ -54,16 +64,16 @@ def get_chapter(chapter_id, url):
         chapter_id = 999999
         file_name = "Glossary.html"
     else:
-        #file_name = 'chapter_{0}_{1}.html'.format(ix, chapter_id)
         file_name = 'wandering_inn-{0:03d}.html'.format(chapter_id)
         file_name = os.path.join(html_path, file_name)
         h1 = pg.new_tag("h1", id=chapter_id)
         h1.string = title
 
-        # Strip color from text that can make it hard to read on a paperwhite:
-        for span in contents.find_all('span'):
-            if 'color' in str(span):
-                span.replaceWithChildren()
+        if strip_color:
+            # Strip color from text that can make it hard to read on a paperwhite:
+            for span in contents.find_all('span'):
+                if 'color' in str(span):
+                    span.replaceWithChildren()
 
         # And replace images that can't be rendered:
         for img in contents.find_all('img'):
@@ -83,12 +93,11 @@ def get_chapter(chapter_id, url):
 def get_index():
     page = urlopen(toc)
     soup = BeautifulSoup(page, 'lxml')
-    # index = soup.find('div', {'class': 'entry-content'})
     index = soup.find('p')
     links = index.find_all_next('a', href=True)
     return links
 
-def get_book():
+def get_book(volume=None, chapter=None, strip_color=False):
     try:
         if os.path.isfile(chapter_file):
             with open(chapter_file, 'r') as fh:
@@ -98,7 +107,6 @@ def get_book():
         print("Error loading chapter json: {0}".format(error))
 
     links = get_index()
-    # get_chapter(0, 'https://wanderinginn.com/2016/07/27/1-00/')
     for chapter_id, link in enumerate(links, 1):
         try:
             get_chapter(chapter_id, link['href'])
@@ -108,7 +116,8 @@ def get_book():
         json.dump(extracted_chapters, fh)
 
 def main():
-    get_book()
+    args = parser.parse_args()
+    get_book(volume=args.volume, chapter=args.chapter, strip_color=args.strip_color)
     ebook_data = parseEBookFile( 'the_wandering_inn/the_wandering_inn.json')
     gen = OPFGenerator(ebook_data)
     gen.createEBookFile('the_wandering_inn/The Wandering Inn.epub')
