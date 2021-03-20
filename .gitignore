@@ -4,5 +4,7 @@ ebookmaker/
 *.html
 *.epub
 *.mobi
+*.png
+!cover.png
 the_wandering_inn/chapters.json
 recipients.txt

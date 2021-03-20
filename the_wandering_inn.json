@@ -16,10 +16,6 @@
         {
             "name" : "",
             "role" : ""
-        },
-        {
-            "name" : "",
-            "role" : ""
         }
     ],
     "identifier" : {
@@ -28,16 +24,14 @@
     },
     "contents" : [
         {
+            "generate": "True",
             "type" : "title-page",
-            "source" : "the_wandering_inn/html/title.html"
+            "source" : "title.html"
         },
         {
+            "generate": "True",
             "type" : "toc",
-            "source" : "the_wandering_inn/html/index.html"
-        },
-        {
-            "type" : "text",
-            "source" : "the_wandering_inn/html/wandering_inn*.html"
+            "source" : "index.html"
         }
     ],
     "toc" : {
@@ -51,7 +45,7 @@
         {
             "type" : "toc",
             "title" : "Table of Contents",
-            "href" : "the_wandering_inn/html/index.html"
+            "href" : "index.html"
         }
     ]
 }

@@ -5,69 +5,59 @@ Created on Mon Nov  5 01:19:53 2018
 @author: Patrick
 """
 
-from urllib.request import urlopen
+from urllib.request import urlopen, URLError
+import sys
 import os
 import argparse
+import re
+from copy import deepcopy
 from bs4 import BeautifulSoup
 import json
 import codecs
 
 from ebookmaker.ebookmaker import OPFGenerator, parseEBookFile
 
-toc = r'https://wanderinginn.com/table-of-contents/'
-chapter_file = 'the_wandering_inn/chapters.json'
-html_path = os.path.join('the_wandering_inn', 'html')
 
-html = '''<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11\
-/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta name="author" content="pirate aba">
-<meta name="description" content="The Wandering Inn">
-<meta name="classification" content="Fantasy" >
-<title>The Wandering Inn</title>
-<link rel="stylesheet" href="style.css" type = "text/css" />
-</head>
-<body>
-'''
+class Chapter:
+    _HTML_HEADER = '''<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11\
+    /DTD/xhtml11.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="author" content="pirate aba">
+    <meta name="description" content="The Wandering Inn">
+    <meta name="classification" content="Fantasy" >
+    <title>The Wandering Inn</title>
+    <link rel="stylesheet" href="style.css" type = "text/css" />
+    </head>
+    <body>
+    '''
 
-global extracted_chapters
-extracted_chapters = dict()
+    def __init__(self, link, volume, index):
+        self.url = link['href']
+        self.name = link.text
+        self.volume = volume
+        self.index = index
+        if self.name == 'Glossary':
+            self.volume = 999999
+            self.index  = 999999
+        self.filename = f'wandering_inn-{self.volume:02d}.{self.index:03d}-{self.name}.html'
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--strip-color', dest='strip_color', type=bool, action='store_true'
-    )
-    parser.add_argument('--volume', default=None, nargs='+')
-    parser.add_argument('--chapter', default=None, nargs='+')
-    return parser.pares_args()
+    def save(self, stream=sys.stdout, strip_color=False, image_path='./images'):
+        page = BeautifulSoup(urlopen(self.url, timeout=5), 'lxml')
 
-def get_chapter(chapter_id, url, strip_color=False):
-    global extracted_chapters
-    if str(url) in extracted_chapters:
-        print("Already downloaded {0}: Skipping".format(url))
-        return
+        contents = page.find('div', {'class': 'entry-content'})
+        end_content = contents.find('hr')
 
-    response = urlopen(url)
-    pg = BeautifulSoup(response, 'lxml')
-    contents = pg.find('div', {'class': 'entry-content'})
-    end_content = contents.find("hr")
+        if end_content:
+            [s.decompose() for s in end_content.find_next_siblings()]
+            end_content.decompose()
 
-    if end_content:
-        [s.decompose() for s in end_content.find_next_siblings()]
-        end_content.decompose()
-
-    title = pg.find('h1', {'class':'entry-title'}).text.strip()
-    if title == "Glossary":
-        chapter_id = 999999
-        file_name = "Glossary.html"
-    else:
-        file_name = 'wandering_inn-{0:03d}.html'.format(chapter_id)
-        file_name = os.path.join(html_path, file_name)
-        h1 = pg.new_tag("h1", id=chapter_id)
-        h1.string = title
+        author_note = [p for p in contents.find_all('p') if p.getText()[0:6] == 'Author' and 'Note' in p.getText()[0:13]]
+        if author_note:
+            end_content = author_note[0]
+            [s.decompose() for s in end_content.find_next_siblings()]
+            end_content.decompose()
 
         if strip_color:
             # Strip color from text that can make it hard to read on a paperwhite:
@@ -75,52 +65,176 @@ def get_chapter(chapter_id, url, strip_color=False):
                 if 'color' in str(span):
                     span.replaceWithChildren()
 
-        # And replace images that can't be rendered:
+        # Download and replace image urls with local references:
         for img in contents.find_all('img'):
-            r = pg.new_tag('p')
-            r.string = "IMAGE REMOVED"
-            img.replace_with(r)
+            img_filename = os.path.split(img['data-orig-file'])[1]
+            with open(os.path.join(image_path, img_filename), 'wb') as fo:
+                fo.write(urlopen(img['src'], timeout=5).read())
+            img['src'] = os.path.join(image_path, img_filename)
 
-        print("Writing {0}: {1}".format(chapter_id, title))
-        with codecs.open(file_name, 'w', encoding='utf-8') as fh:
-            fh.write(html)
-            fh.write(str(h1))
-            fh.write(str(contents))
-            fh.write('</p>\n\n</body>\n</html>\n')
-        extracted_chapters[url] = chapter_id
+        title = page.find('h1', {'class': 'entry-title'}).text.strip()
+        h1 = page.new_tag('h1', id=self.index)
+        h1.string = title
 
+        print(f'{Chapter._HTML_HEADER}\n{h1}\n{contents}</p>\n\n</body>\n</html>\n',
+              file=stream)
 
-def get_index():
-    page = urlopen(toc)
-    soup = BeautifulSoup(page, 'lxml')
-    index = soup.find('p')
-    links = index.find_all_next('a', href=True)
-    return links
+    def __str__(self):
+        return self.name
 
-def get_book(volume=None, chapter=None, strip_color=False):
-    try:
-        if os.path.isfile(chapter_file):
-            with open(chapter_file, 'r') as fh:
-                global extracted_chapters
-                extracted_chapters = json.load(fh)
-    except Exception as error:
-        print("Error loading chapter json: {0}".format(error))
+    def __repr__(self):
+        return f'Chapter<Volume: {self.volume}, Name: {self.name}, index: {self.index}>'
 
-    links = get_index()
-    for chapter_id, link in enumerate(links, 1):
+    def __lt__(self, other):
+        if self.volume < other.volume:
+            return True
+        if self.volume == other.volume:
+            if self.index < other.index:
+                return True
+        return False
+
+    def __eq__(self, other):
         try:
-            get_chapter(chapter_id, link['href'])
-        except Exception as error:
-            print("Error converting {0}: {1}".format(chapter_id, error))
-    with open(chapter_file, 'w') as fh:
-        json.dump(extracted_chapters, fh)
+            return (self.volume == other.volume and self.index == other.index)
+        except AttributeError:
+            return False
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--build-dir', dest='build_dir', default='./the_wandering_inn')
+    parser.add_argument('--strip-color', dest='strip_color', action='store_true')
+    parser.add_argument('--volume', default=[], type=int, nargs='+')
+    parser.add_argument('--chapter', default=[], nargs='+')
+    parser.add_argument('--by-chapter', dest='by_chapter', action='store_true')
+    parser.add_argument('--toc-only', dest='toc_only', action='store_true')
+    args = parser.parse_args()
+    return args
+
+
+def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
+    page = urlopen(toc_url)
+    soup = BeautifulSoup(page, 'lxml')
+    paragraphs = soup.find_all('p')
+
+    index = []
+    volume = 0
+    for v, chapters in zip(paragraphs[0::2], paragraphs[1::2]):
+        try:
+            volume = int(v.text.replace("Volume","").strip())
+        except ValueError:
+            print(f"Unable to get volume from text: {v}")
+        index.extend([Chapter(link, volume, index) for index, link in enumerate(chapters.find_all('a', href=True),1)])
+    return index
+
+
+def create_cover_image(base_image, title):
+    impath, base_name = os.path.split(base_image)
+    ext = os.path.splitext(base_name)[1]
+    new_name = title.replace(' ', '_')
+    new_image = os.path.join(impath, new_name + ext)
+    os.system(f"convert -pointsize 40 -fill yellow -draw 'text 10,72 \"{title}\"' {base_image} {new_image}")
+    return new_image
+
+
+def get_book(ebook_data,
+             volume=None,
+             index=None,
+             chapter_match=None,
+             strip_color=False,
+             html_path=os.path.join('the_wandering_inn', 'html'),
+             ):
+
+    if index is None:
+        index = get_index()
+
+    add_all = volume is None and chapter_match is None
+
+    if volume is not None:
+        title = ebook_data['title'] + f' - Volume {volume}'
+
+    ch = None
+    if chapter_match:
+        if chapter_match == 'latest':
+            ch = index[-1]
+        elif isinstance(chapter_match, Chapter):
+            ch = chapter_match
+        else:
+            try:
+                ch = [c for c in index if c.name == chapter_match][-1]
+                print(f'Found matching chapter for {chapter_match}: {ch}')
+            except Exception as error:
+                print(f'Unable to find matching chapter for {chapter_match}')
+                raise error
+        title = ebook_data['title'] + f' - Volume {ch.volume}.{ch.index} - Chapter {ch.name}'
+
+    cover = create_cover_image(ebook_data['cover'], title)
+    ebook_data['title'] = title
+    ebook_data['cover'] = cover
+
+    if not os.path.isdir(html_path):
+        os.makedirs(html_path)
+
+    image_path = os.path.join(html_path, 'images')
+    if not os.path.isdir(image_path):
+        os.makedirs(image_path)
+    for chapter in index:
+        if add_all or volume == chapter.volume or ch == chapter:
+            filename = os.path.join(html_path, chapter.filename)
+            ebook_data['contents'].append({'generate': False, 'type': 'text', 'source': filename})
+            if not os.path.isfile(filename):
+                try:
+                    with codecs.open(filename, 'w', encoding='utf-8') as fh:
+                        chapter.save(stream=fh, strip_color=strip_color, image_path=image_path)
+                except URLError as err:
+                    os.unlink(filename)
+                    raise err
+
 
 def main():
-    args = parser.parse_args()
-    get_book(volume=args.volume, chapter=args.chapter, strip_color=args.strip_color)
-    ebook_data = parseEBookFile( 'the_wandering_inn/the_wandering_inn.json')
-    gen = OPFGenerator(ebook_data)
-    gen.createEBookFile('the_wandering_inn/The Wandering Inn.epub')
+    args = parse_args()
+
+    with open('the_wandering_inn.json') as fh:
+        ebook_data = json.load(fh)
+
+    #replace_strings(ebook_data, '{BUILD_DIR}', args.build_dir)
+
+    # # General assumption: create books by volume, with last volume (except glossary) by chapter
+    # # For the whole book at once, just use:
+    # get_book(ebook_data, html_path=os.path.join(args.build_dir, 'html'))
+
+    index = get_index()
+
+    if args.chapter:
+        pass
+    elif not args.volume:
+        args.volume = set([c.volume for c in index])
+
+    html_path = os.path.join(args.build_dir, 'html')
+
+    for volume in args.volume:
+        if args.by_chapter:
+            for chapter in index:
+                if chapter.volume != volume:
+                    continue
+                chapter_data = deepcopy(ebook_data)
+                get_book(chapter_data,
+                         volume=volume,
+                         index=[chapter],
+                         chapter_match=chapter.name,
+                         html_path=html_path,
+                         )
+                gen = OPFGenerator(chapter_data)
+                gen.createEBookFile(os.path.join(args.build_dir, f'{chapter_data["title"]}.epub'))
+        else:
+            volume_data = deepcopy(ebook_data)
+            get_book(volume_data,
+                    volume=volume,
+                    index=index,
+                    html_path=html_path,
+                    )
+            gen = OPFGenerator(volume_data)
+            gen.createEBookFile(os.path.join(args.build_dir, f'{volume_data["title"]}.epub'))
 
 if __name__ == "__main__":
     main()
