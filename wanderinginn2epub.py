@@ -14,8 +14,9 @@ from copy import deepcopy
 from bs4 import BeautifulSoup
 import json
 import codecs
+import subprocess
 
-from ebookmaker.ebookmaker import OPFGenerator, parseEBookFile
+from ebookmaker.ebookmaker import OPFGenerator
 
 
 class Chapter:
@@ -33,9 +34,9 @@ class Chapter:
     <body>
     '''
 
-    def __init__(self, link, volume, index):
-        self.url = link['href']
-        self.name = link.text
+    def __init__(self, url, link_text='', volume=0, index=0):
+        self.url = url
+        self.name = link_text
         self.volume = volume
         self.index = index
         if self.name == 'Glossary':
@@ -43,8 +44,15 @@ class Chapter:
             self.index  = 999999
         self.filename = f'wandering_inn-{self.volume:02d}.{self.index:03d}-{self.name}.html'
 
+    def get_page(self):
+        if self.url.startswith('http'):
+            return urlopen(self.url, timeout=5)
+        else:
+            return open(self.url,'r')
+
     def save(self, stream=sys.stdout, strip_color=False, image_path='./images'):
-        page = BeautifulSoup(urlopen(self.url, timeout=5), 'lxml')
+        p = self.get_page()
+        page = BeautifulSoup(p, 'lxml')
 
         contents = page.find('div', {'class': 'entry-content'})
         end_content = contents.find('hr')
@@ -124,7 +132,7 @@ def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
             volume = int(v.text.replace("Volume","").strip())
         except ValueError:
             print(f"Unable to get volume from text: {v}")
-        index.extend([Chapter(link, volume, index) for index, link in enumerate(chapters.find_all('a', href=True),1)])
+        index.extend([Chapter(link['href'], link.text, volume, index) for index, link in enumerate(chapters.find_all('a', href=True),1)])
     return index
 
 
@@ -133,7 +141,12 @@ def create_cover_image(base_image, title):
     ext = os.path.splitext(base_name)[1]
     new_name = title.replace(' ', '_')
     new_image = os.path.join(impath, new_name + ext)
-    os.system(f"convert -pointsize 40 -fill yellow -draw 'text 10,72 \"{title}\"' {base_image} {new_image}")
+    subprocess.run(['convert',
+                    '-pointsize', '40',
+                    '-fill', 'yellow',
+                    '-draw', f'text 10,72 "{title}"',
+                    f'{base_image}',
+                    f'{new_image}'])
     return new_image
 
 
