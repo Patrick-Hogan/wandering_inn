@@ -25,9 +25,9 @@ class Chapter:
     <html xmlns="http://www.w3.org/1999/xhtml">
     <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="author" content="pirate aba">
-    <meta name="description" content="The Wandering Inn">
-    <meta name="classification" content="Fantasy" >
+    <meta name="author" content="pirate aba"/>
+    <meta name="description" content="The Wandering Inn"/>
+    <meta name="classification" content="Fantasy" />
     <title>The Wandering Inn</title>
     <link rel="stylesheet" href="style.css" type = "text/css" />
     </head>
@@ -84,7 +84,7 @@ class Chapter:
         h1 = page.new_tag('h1', id=self.index)
         h1.string = title
 
-        print(f'{Chapter._HTML_HEADER}\n{h1}\n{contents}</p>\n\n</body>\n</html>\n',
+        print(f'{Chapter._HTML_HEADER}\n{h1}\n{contents}\n\n</body>\n</html>\n',
               file=stream)
 
     def __str__(self):
