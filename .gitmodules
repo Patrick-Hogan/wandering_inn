@@ -1,0 +1,3 @@
+[submodule "ebookmaker"]
+	path = ebookmaker
+	url = https://github.com/setanta/ebookmaker
