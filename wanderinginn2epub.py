@@ -135,18 +135,27 @@ def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
         index.extend([Chapter(link['href'], link.text, volume, index) for index, link in enumerate(chapters.find_all('a', href=True),1)])
     return index
 
+def write_index(index, fh):
+    fh.write(index[0]._HTML_HEADER)
+    for c in index:
+        fh.write(f'<h2><a href="{c.filename}">{c.name}</a></h2>\n')
+    fh.write('</body>\n</html>')
 
 def create_cover_image(base_image, title):
     impath, base_name = os.path.split(base_image)
     ext = os.path.splitext(base_name)[1]
     new_name = title.replace(' ', '_')
     new_image = os.path.join(impath, new_name + ext)
-    subprocess.run(['convert',
-                    '-pointsize', '40',
-                    '-fill', 'yellow',
-                    '-draw', f'text 10,72 "{title}"',
-                    f'{base_image}',
-                    f'{new_image}'])
+    try:
+        subprocess.run(['convert',
+                        '-pointsize', '40',
+                        '-fill', 'yellow',
+                        '-draw', f'text 10,72 "{title}"',
+                        f'{base_image}',
+                        f'{new_image}'])
+    except Exception as error:
+        print(f'Unable to create cover image for {title}: {error}')
+        new_image = base_iamge
     return new_image
 
 
