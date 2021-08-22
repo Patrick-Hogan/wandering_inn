@@ -1,10 +1,11 @@
 .idea/
 .venv/
-ebookmaker/
 *.html
 *.epub
 *.mobi
 *.png
+*.pyc
+**/__pycache__/
 !cover.png
-the_wandering_inn/chapters.json
+the_wandering_inn/html
 recipients.txt
