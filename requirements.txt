@@ -1,4 +1,4 @@
 beautifulsoup4==4.7.1
-bs4==0.0.1
-#git+https://github.com/setanta/ebookmaker
+#git+https://github.com/setanta/ebookmaker -- added as submodule
 lxml
+pillow==8.3.* # required for generating cover image per volume/chapter

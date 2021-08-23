@@ -5,7 +5,7 @@ I have no affiliation with and no rights to The Wandering Inn; I'm just a fan wh
 my kindle and on my phone even when I don't have internet access. 
 
 The created ebook sometimes has some rough patches to it; I'd encourage you to buy the [official
-releases](https://www.amazon.com/gp/product/B07YH9X7V7/?ie=UTF8&keywords=the%20wandering%20inn&qid=1577641602&ref_=sr_1_3&sr=8-3)
+releases](https://www.amazon.com/pirate-aba/e/B07XCYVYMW?ref=dbs_mng_calw_a_0)
 as they happen on Amazon to get a polished copy and [support the
 author](https://www.patreon.com/user?u=4240617). I only created this project so I can catch/keep up
 with the web publications.
@@ -17,10 +17,12 @@ bash.
 # Usage
 
 1) Clone this repository:
+
 ```bash
 git clone --recurse-submdoules https://github.com/Patrick-Hogan/wandering_inn.git
 cd wandering_inn
 ```
+
 2) Install requirements
    
       Recommended: install requirements in a [virtual
@@ -29,11 +31,44 @@ cd wandering_inn
       pip install -r requirements.txt
       ```
 
-      3) Run the script. Options can be displayed by passing `-h` or `--help`
+3) Run the script: 
 
-      ```bash
-      ./wanderinginn2epub.py
-      ```
+    Options can be displayed by passing `-h` or `--help`:
+
+    ```bash
+    ./wanderinginn2epub.py --help
+    ```
+
+    Generate a single epub for all available public chapters:
+
+    ```bash
+    ./wanderinginn2epub.py
+    ```
+
+    Pretty print the chapters that would be included:
+
+    ```bash
+    ./wanderinginn2epub.py --output-print-index
+    ```
+
+    Generate one epub per volume for volumes 1-7:
+    ```bash
+    ./wanderinginn2epub.py --volume 1 2 3 4 5 6 7 --output-by-volume
+    ```
+
+    Generate one epub per chapter for volume 8, stripping color so light fonts are readable on
+    black-and-white screens (e.g., winter sprites' coversations):
+    ```bash
+    ./wanderinginn2epub.py --volume 8 --output-by-chapter --strip-color
+    ```
+
+    Generate an epub for the latest published chapter only:
+    ```bash
+    ./wanderinginn2epub.py --chapter latest --output-by-chapter
+    ```
+
+
+
 
 # Automated Mailing
 
