@@ -19,7 +19,7 @@ bash.
 1) Clone this repository:
 
 ```bash
-git clone --recurse-submdoules https://github.com/Patrick-Hogan/wandering_inn.git
+git clone --recurse-submodules https://github.com/Patrick-Hogan/wandering_inn.git
 cd wandering_inn
 ```
 
