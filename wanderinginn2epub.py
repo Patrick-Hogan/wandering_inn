@@ -5,23 +5,23 @@ Created on Mon Nov  5 01:19:53 2018
 @author: Patrick
 """
 
-from urllib.request import urlopen, URLError
-import sys
-import os
 import argparse
-import re
-from pprint import pprint
-from copy import deepcopy
-from bs4 import BeautifulSoup
-import json
 import codecs
-import subprocess
+import json
+import os
+import sys
+from copy import deepcopy
+from pprint import pprint
+from urllib.request import URLError, urlopen
+
+from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 from ebookmaker.ebookmaker import OPFGenerator
 
 # for cover image:
 try:
-    from PIL import Image, ImageFont, ImageDraw
+    from PIL import Image, ImageDraw, ImageFont
 except ModuleNotFoundError as error:
     print(f'Warning: pillow not found. New cover image will not be generated. Error: {error}')
 
@@ -255,7 +255,7 @@ def get_book(ebook_data,
     def include_chapter(ch):
         return (volume is None or ch.volume == volume) and (chapter is None or ch == chapter)
 
-    for ch in filter(include_chapter, index):
+    for ch in tqdm(list(filter(include_chapter, index)), "Chapter"):
         filename = os.path.join(html_path, ch.filename)
         ebook_data['contents'].append({'generate': False, 'type': 'text', 'source': filename})
         if not os.path.isfile(filename):
@@ -307,13 +307,13 @@ def main():
         return
 
     if args.by_chapter:
-        for chapter in index:
+        for chapter in tqdm(index):
             chapter_data = deepcopy(ebook_data)
             get_book(chapter_data, chapter=chapter, index=[chapter], build_dir=args.build_dir)
             gen = OPFGenerator(chapter_data)
             gen.createEBookFile(os.path.join(args.build_dir, f'{chapter_data["title"]}.epub'))
     elif args.by_volume:
-        for volume in args.volume:
+        for volume in tqdm(args.volume, "Volume"):
             volume_data = deepcopy(ebook_data)
             get_book(volume_data,
                      volume=volume,
