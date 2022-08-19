@@ -78,7 +78,7 @@ class Chapter:
             # Strip color from text that can make it hard to read on a paperwhite:
             for span in contents.find_all('span'):
                 if 'color' in str(span):
-                    span.replaceWithChildren()
+                    span.unwrap() # bs4 method for replaceWithChildren
 
         # Download and replace image urls with local references:
         for img in contents.find_all('img'):
@@ -309,7 +309,12 @@ def main():
     if args.by_chapter:
         for chapter in tqdm(index):
             chapter_data = deepcopy(ebook_data)
-            get_book(chapter_data, chapter=chapter, index=[chapter], build_dir=args.build_dir)
+            get_book(chapter_data,
+                     chapter=chapter,
+                     index=[chapter],
+                     build_dir=args.build_dir,
+                     strip_color=args.strip_color,
+                     )
             gen = OPFGenerator(chapter_data)
             gen.createEBookFile(os.path.join(args.build_dir, f'{chapter_data["title"]}.epub'))
     elif args.by_volume:
@@ -319,11 +324,17 @@ def main():
                      volume=volume,
                      index=filter(lambda c: c.volume == volume, index),
                      build_dir=args.build_dir,
+                     strip_color=args.strip_color,
                      )
             gen = OPFGenerator(volume_data)
             gen.createEBookFile(os.path.join(args.build_dir, f'{volume_data["title"]}.epub'))
     else:
-        get_book(ebook_data, index=index, build_dir=args.build_dir, title=args.title)
+        get_book(ebook_data,
+                index=index,
+                build_dir=args.build_dir,
+                title=args.title,
+                strip_color=args.strip_color,
+                )
         gen = OPFGenerator(ebook_data)
         gen.createEBookFile(os.path.join(args.build_dir, f'{ebook_data["title"]}.epub'))
 
