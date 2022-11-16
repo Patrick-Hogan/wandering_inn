@@ -10,12 +10,14 @@ import codecs
 import json
 import os
 import sys
+import re
 from copy import deepcopy
 from pprint import pprint
 from urllib.request import URLError, urlopen
 
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+import webcolors
 
 from ebookmaker.ebookmaker import OPFGenerator
 
@@ -24,6 +26,25 @@ try:
     from PIL import Image, ImageDraw, ImageFont
 except ModuleNotFoundError as error:
     print(f'Warning: pillow not found. New cover image will not be generated. Error: {error}')
+
+def distance_squared(a, b):
+    return sum((x -y)**2 for x, y in zip(a, b))
+
+def get_semantic_color_from_hex(hex, spec='css3'):
+    if spec not in webcolors.SUPPORTED_SPECIFICATIONS:
+        raise ValueError("Spec must be one of: {webcolors.SUPPORTED_SPECIFICATIONS}")
+    semantic_color = "UNKNOWN"
+    try:
+        semantic_color = webcolors.hex_to_name(hex, spec)
+    except ValueError:
+        rgb = webcolors.hex_to_rgb(hex)
+        mindist = 255**3
+        for cvalue, cname in getattr(webcolors, f'{spec.upper()}_HEX_TO_NAMES').items():
+            d = distance_squared(rgb, webcolors.hex_to_rgb(cvalue))
+            if d < mindist:
+                mindist = d
+                semantic_color = cname
+    return semantic_color
 
 
 class Chapter:
@@ -78,6 +99,14 @@ class Chapter:
             # Strip color from text that can make it hard to read on a paperwhite:
             for span in contents.find_all('span'):
                 if 'color' in str(span):
+                    try:
+                        hexcolor = re.findall(r'(?<=color\:)\#[0-9a-fA-F]{6}', str(span))[0]
+                        color = get_semantic_color_from_hex(hexcolor).upper()
+                    except Exception as error:
+                        print(f'Error replacing color: {error}')
+                        continue;
+                    span.insert(0, f'<{color}|')
+                    span.append(f'|{color}>')
                     span.unwrap() # bs4 method for replaceWithChildren
 
         # Download and replace image urls with local references:
