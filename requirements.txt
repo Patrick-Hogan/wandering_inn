@@ -3,3 +3,4 @@ beautifulsoup4==4.7.1
 lxml
 pillow==8.3.* # required for generating cover image per volume/chapter
 tqdm==4.62.* # for progess bars
+webcolors==1.12
