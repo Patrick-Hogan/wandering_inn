@@ -208,7 +208,7 @@ def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
 
     index = []
     volume = 0
-    for v, chapters in zip(paragraphs[0::2], paragraphs[1::2]):
+    for v, chapters in zip(paragraphs[1::2], paragraphs[2::2]):
         try:
             volume = int(v.text.replace("Volume","").strip())
         except ValueError:
