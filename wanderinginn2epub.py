@@ -111,10 +111,21 @@ class Chapter:
 
         # Download and replace image urls with local references:
         for img in contents.find_all('img'):
-            img_filename = os.path.split(img['data-orig-file'])[1]
-            with open(os.path.join(image_path, img_filename), 'wb') as fo:
-                fo.write(urlopen(img['src'], timeout=5).read())
-            img['src'] = os.path.join(image_path, img_filename)
+            img_filename = None
+            try:
+                img_filename = os.path.split(img['data-orig-file'])[1]
+            except KeyError:
+                try:
+                    # data-orig-file not specified. Try using src end of path and stripping off any html params:
+                    img_filename = os.path.split(img['src'])[1].partition('?')[0]
+                except KeyError:
+                    pass
+            if img_filename:
+                with open(os.path.join(image_path, img_filename), 'wb') as fo:
+                    fo.write(urlopen(img['src'], timeout=5).read())
+                img['src'] = os.path.join(image_path, img_filename)
+            else:
+                print(f'Removing image: unable to determine filename:\n\t{img}')
 
         title = page.find('h1', {'class': 'entry-title'}).text.strip()
         h1 = page.new_tag('h1', id=self.index)
