@@ -113,7 +113,7 @@ class Chapter:
         for img in contents.find_all('img'):
             img_filename = None
             try:
-                img_filename = os.path.split(img['data-orig-file'])[1]
+                img_filename = os.path.split(img['data-orig-file'])[1].partition('?')[0]
             except KeyError:
                 try:
                     # data-orig-file not specified. Try using src end of path and stripping off any html params:
