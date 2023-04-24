@@ -1,4 +1,16 @@
 # wandering_inn
+
+**NOTE: It looks like wanderinginn.com has changed firewall settings to prevent/limit scraping;
+attempting to scrape an entire volume--much less multiple volumes--will likely result in a ban on
+your IP.**
+
+I've re-checked the site for any prohibition on scraping and don't see any. I'm not sure what the
+actual threshold to trigger a ban is (best guess: a sustained high rate of access over a short
+period of time; I was banned with ~100 page accesses in a day, but the last 90 or so of those were
+in rapid succession via script). 
+
+I recommend against using any options other than "--chapter" to select content. 
+
 Download and convert [The Wandering Inn](https://wanderinginn.com/) to epub and mobi (kindle) format
 
 I have no affiliation with and no rights to The Wandering Inn; I'm just a fan who likes to read on
@@ -28,7 +40,11 @@ cd wandering_inn
       Recommended: install requirements in a [virtual
       environment](https://docs.python.org/3/library/venv.html).
       ```bash
+      # in a virtual environment:
       pip install -r requirements.txt
+
+      # Alternatively, use the --user flag to avoid needing sudo/admin:
+      pip install --user -r requirements.txt
       ```
 
 3) Run the script: 
@@ -66,9 +82,6 @@ cd wandering_inn
     ```bash
     ./wanderinginn2epub.py --chapter latest --output-by-chapter
     ```
-
-
-
 
 # Automated Mailing
 
