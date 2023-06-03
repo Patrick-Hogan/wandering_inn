@@ -62,10 +62,11 @@ class Chapter:
     <body>
     '''
 
-    def __init__(self, url, link_text='', volume=0, index=0):
+    def __init__(self, url, link_text='', volume=0, book=0, index=0):
         self.url = url
         self.name = link_text
         self.volume = volume
+        self.book = book
         self.index = index
         if self.name == 'Glossary':
             self.volume = 999999
@@ -138,7 +139,7 @@ class Chapter:
         return self.name
 
     def __repr__(self):
-        return f'Chapter<Volume: {self.volume}, Name: {self.name}, index: {self.index}>'
+        return f'Chapter<Volume: {self.volume}, Name: {self.name}, book {self.book}, index: {self.index}>'
 
     def __lt__(self, other):
         if self.volume < other.volume:
@@ -176,6 +177,12 @@ def parse_args():
                         type=int,
                         nargs='+',
                         help='Volume(s) to get for ebook (default: all; if chapter specified, default is None)',
+                        )
+    parser.add_argument('--book',
+                        default=[],
+                        type=int,
+                        nargs='+',
+                        help='Book(s) to get for ebook (default: all; if chapter specified, default is None)',
                         )
     parser.add_argument('--chapter',
                         default=[],
@@ -215,16 +222,31 @@ def parse_args():
 def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
     page = urlopen(toc_url)
     soup = BeautifulSoup(page, 'lxml')
-    paragraphs = soup.find_all('p')
-
+    # Find the element with class 'entry-content'
+    contents = soup.find('div', {'class': 'entry-content'})
+    # Loop through all the sub-elements of the content div, making note when
+    # we come across a h2 tag (volume) or h3 tag (book)
     index = []
     volume = 0
-    for v, chapters in zip(paragraphs[1::2], paragraphs[2::2]):
-        try:
-            volume = int(v.text.replace("Volume","").strip())
-        except ValueError:
-            print(f"Unable to get volume from text: {v}")
-        index.extend([Chapter(link['href'], link.text, volume, index) for index, link in enumerate(chapters.find_all('a', href=True))])
+    book = 0
+    i = 0 # 'index' of chapter in volume, easier than parsing weird chapter names
+    for element in contents.children:
+        if element.name == 'h2':
+            # New volume, reset index
+            i = 0
+            # Extract the volume number from the id
+            volume = int(element['id'].replace("vol","").strip())
+            print(f"Volume: {volume}")
+        elif element.name == 'h3':
+            # Extract the book number from the id
+            book = int(element['id'].replace("book","").strip())
+            print(f"Book: {book}")
+        elif element.name == 'p':
+            for chapter in element.children:
+                if chapter.name == 'a':
+                    i += 1
+                    #print(f"Chapter: {chapter.text} in volume {volume} book {book} at index {i}")
+                    index.append(Chapter(chapter['href'], chapter.text, volume, book, i))
     return index
 
 # hacky way to write index for testing with project gutenberg's ebookmaker; not currently used
@@ -321,7 +343,7 @@ def main():
     # chapter(s) (e.g., if volume == [1, 3] and chapter == 'latest', include all chapters that are
     # in volume 1 or 3 and the latest published chapter)
     index = []
-    if not args.chapter and not args.volume:
+    if not args.chapter and not args.volume and not args.book:
         index = full_index
         args.volume = sorted(set((c.volume for c in index)))
     else:
@@ -336,6 +358,10 @@ def main():
                     print(f'Unable to find matching chapter for {chapter_title}: {error}')
         if args.chapter and not chapters:
             raise Exception('No listed chapters were found!')
+        if args.book:
+            for c in full_index:
+                if c.book in args.book:
+                    chapters.add(c)
         if args.volume:
             for c in full_index:
                 if c.volume in args.volume:
