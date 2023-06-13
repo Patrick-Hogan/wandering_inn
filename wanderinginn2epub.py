@@ -215,16 +215,20 @@ def parse_args():
 def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
     page = urlopen(toc_url)
     soup = BeautifulSoup(page, 'lxml')
-    paragraphs = soup.find_all('p')
+
+    toc = soup.find("div", {"id": "table-of-contents"})
 
     index = []
     volume = 0
-    for v, chapters in zip(paragraphs[1::2], paragraphs[2::2]):
-        try:
-            volume = int(v.text.replace("Volume","").strip())
-        except ValueError:
-            print(f"Unable to get volume from text: {v}")
-        index.extend([Chapter(link['href'], link.text, volume, index) for index, link in enumerate(chapters.find_all('a', href=True))])
+    for div in toc.find_all('div', recursive=False):
+        if 'volume-header-wrapper' in div['class']:
+            volume = int(div.find('h2').text.replace("Volume", "").strip())
+            print(f'Volume: {volume}')
+        elif 'volume-table' in div['class']:
+            for chapter in div.find_all('div', {'class': 'chapter-entry'}):
+                link = chapter.find('a', href=True)
+                index.append(Chapter(link['href'], link.text, volume, len(index)))
+            
     return index
 
 # hacky way to write index for testing with project gutenberg's ebookmaker; not currently used
