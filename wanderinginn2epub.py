@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import re
+import ssl
 from copy import deepcopy
 from pprint import pprint
 from urllib.request import URLError, urlopen
@@ -122,7 +123,7 @@ class Chapter:
                     pass
             if img_filename:
                 with open(os.path.join(image_path, img_filename), 'wb') as fo:
-                    fo.write(urlopen(img['src'], timeout=5).read())
+                    fo.write(urlopen(img['src'], timeout=5, context=ssl.create_default_context()).read())
                 img['src'] = os.path.join(image_path, img_filename)
             else:
                 print(f'Removing image: unable to determine filename:\n\t{img}')
