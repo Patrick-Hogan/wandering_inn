@@ -215,16 +215,22 @@ def parse_args():
 def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
     page = urlopen(toc_url)
     soup = BeautifulSoup(page, 'lxml')
-    paragraphs = soup.find_all('p')
 
     index = []
-    volume = 0
-    for v, chapters in zip(paragraphs[1::2], paragraphs[2::2]):
+    for volume_wrapper in soup.find_all('div', {'class': 'volume-wrapper'}):
+        wrapper_id = volume_wrapper.get('id')
         try:
-            volume = int(v.text.replace("Volume","").strip())
+            volume = int(wrapper_id.replace("vol-","").strip())
         except ValueError:
-            print(f"Unable to get volume from text: {v}")
-        index.extend([Chapter(link['href'], link.text, volume, index) for index, link in enumerate(chapters.find_all('a', href=True))])
+            print(f"Unable to get volume from volume wrapper id: {wrapper_id}")
+            continue
+
+        for chapter_cell in volume_wrapper.find_all('div', {'class': 'body-web table-cell'}):
+            chapters = [Chapter(link['href'], link.text, volume, index)
+                        for index, link in enumerate(chapter_cell.find_all('a', href=True))]
+            if len(chapters) != 1:
+                print(f"Unexpected results for chapter cell: {chapter_cell}, {chapters}")
+            index.extend(chapters)
     return index
 
 # hacky way to write index for testing with project gutenberg's ebookmaker; not currently used
