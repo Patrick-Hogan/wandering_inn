@@ -76,7 +76,7 @@ class Chapter:
         if self.url.startswith('http'):
             return urlopen(self.url, timeout=5)
         else:
-            return open(self.url,'r')
+            return urlopen('https://wanderinginn.com/' + self.url, timeout=5)
 
     def save(self, stream=sys.stdout, strip_color=False, image_path='./images'):
         p = self.get_page()
