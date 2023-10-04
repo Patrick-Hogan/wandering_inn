@@ -84,7 +84,7 @@ class Chapter:
         )
 
     def get_page(self):
-        time.sleep(ATELIMIT)
+        time.sleep(RATELIMIT)
         if self.url.startswith("http"):
             return urlopen(self.url, timeout=5)
         else:
