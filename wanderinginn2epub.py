@@ -84,6 +84,7 @@ class Chapter:
         )
 
     def get_page(self):
+        time.sleep(ATELIMIT)
         if self.url.startswith("http"):
             return urlopen(self.url, timeout=5)
         else:
@@ -144,10 +145,10 @@ class Chapter:
                             img["src"], timeout=10, context=ssl.create_default_context()
                         ).read()
                     )
+                    time.sleep(RATELIMIT)
                 img["src"] = os.path.join(image_path, img_filename)
             else:
                 print(f"Removing image: unable to determine filename:\n\t{img}")
-            time.sleep(RATELIMIT)
 
         title = page.find("h1", {"class": "entry-title"}).text.strip()
         h1 = page.new_tag("h1", id=self.index)
@@ -379,7 +380,6 @@ def get_book(
                 os.unlink(filename)
                 raise err
 
-        time.sleep(RATELIMIT)
 
 
 def main():
