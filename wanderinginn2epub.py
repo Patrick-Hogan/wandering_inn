@@ -10,7 +10,9 @@ import codecs
 import json
 import os
 import re
+import ssl
 import sys
+import time
 from copy import deepcopy
 from pprint import pprint
 from urllib.request import URLError, urlopen
@@ -20,6 +22,8 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from ebookmaker.ebookmaker import OPFGenerator
+
+RATELIMIT = 5
 
 # for cover image:
 try:
@@ -135,10 +139,15 @@ class Chapter:
                     pass
             if img_filename:
                 with open(os.path.join(image_path, img_filename), "wb") as fo:
-                    fo.write(urlopen(img["src"], timeout=5).read())
+                    fo.write(
+                        urlopen(
+                            img["src"], timeout=10, context=ssl.create_default_context()
+                        ).read()
+                    )
                 img["src"] = os.path.join(image_path, img_filename)
             else:
                 print(f"Removing image: unable to determine filename:\n\t{img}")
+            time.sleep(RATELIMIT)
 
         title = page.find("h1", {"class": "entry-title"}).text.strip()
         h1 = page.new_tag("h1", id=self.index)
@@ -180,6 +189,13 @@ def parse_args():
         dest="build_dir",
         default="./build",
         help="Directory to build epubs",
+    )
+    parser.add_argument(
+        "--rate-limit",
+        dest="ratelimit",
+        type=int,
+        default=RATELIMIT,
+        help="Delay between each web request. This is to avoid ratelimits and IP bans.",
     )
     parser.add_argument(
         "--strip-color",
@@ -249,21 +265,22 @@ def parse_args():
 def get_index(toc_url=r"https://wanderinginn.com/table-of-contents/"):
     page = urlopen(toc_url)
     soup = BeautifulSoup(page, "lxml")
-    paragraphs = soup.find_all("p")
 
     index = []
-    volume = 0
-    for v, chapters in zip(paragraphs[1::2], paragraphs[2::2]):
-        try:
-            volume = int(v.text.replace("Volume", "").strip())
-        except ValueError:
-            print(f"Unable to get volume from text: {v}")
-        index.extend(
-            [
-                Chapter(link["href"], link.text, volume, index)
-                for index, link in enumerate(chapters.find_all("a", href=True))
-            ]
+    for volume in soup.find_all("div", {"class": "volume-wrapper"}):
+        # fmt: off
+        volume_num = int(
+            volume
+            .find("div", {"class": "volume-header"})
+            .find("h2")
+            .text
+            .removeprefix("Volume ")
         )
+        # fmt: on
+
+        for chapter in volume.find_all("div", {"class": "body-web"}):
+            link = chapter.find("a", href=True)
+            index.append(Chapter(link["href"], link.text, volume_num, len(index)))
     return index
 
 
@@ -362,9 +379,13 @@ def get_book(
                 os.unlink(filename)
                 raise err
 
+        time.sleep(RATELIMIT)
+
 
 def main():
+    global RATELIMIT
     args = parse_args()
+    RATELIMIT = args.ratelimit
 
     with open("the_wandering_inn.json") as fh:
         ebook_data = json.load(fh)
