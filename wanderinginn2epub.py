@@ -14,6 +14,7 @@ import ssl
 import sys
 import time
 from copy import deepcopy
+from functools import partial
 from pprint import pprint
 from urllib.request import URLError
 from urllib.request import urlopen as _urlopen
@@ -57,8 +58,9 @@ class RateLimited:
     time at your own risk.
     """
 
-    def __init__(self, function, limit=60):
+    def __init__(self, function, default_kwargs=None, limit=60):
         self.function = function
+        self.default_kwargs = default_kwargs
         self.limit = limit # limit calls to 1x/min to try to avoid tripping IP ban
         self._last_called = 0 # no limit on first call
 
@@ -69,6 +71,13 @@ class RateLimited:
             print(f'Delaying call to {self.function} for {delay} s due to limit {self.limit} s')
             time.sleep(delay)
         self._last_called = time.time()
+        # append self.args/kwargs:
+        if self.default_kwargs:
+            for k, v in self.default_kwargs.items():
+                if k in kwargs:
+                    pass
+                else:
+                    kwargs[k] = v
         return self.function(*args, **kwargs)
 
     def set_limit(self, limit):
@@ -76,8 +85,8 @@ class RateLimited:
             self.limit = limit
 
 
-# Replace urlopen with a rate limited version:
-urlopen = RateLimited(_urlopen)
+# Replace urlopen with a rate limited version after parsing relevant args
+urlopen = None
 
 
 class Chapter:
@@ -107,9 +116,9 @@ class Chapter:
 
     def get_page(self):
         if self.url.startswith('http'):
-            return urlopen(self.url, timeout=5)
+            return urlopen(self.url)
         else:
-            return urlopen('https://wanderinginn.com/' + self.url, timeout=5)
+            return urlopen('https://wanderinginn.com/' + self.url)
 
     def save(self, stream=sys.stdout, strip_color=False, image_path='./images'):
         p = self.get_page()
@@ -155,7 +164,7 @@ class Chapter:
                     pass
             if img_filename:
                 with open(os.path.join(image_path, img_filename), 'wb') as fo:
-                    fo.write(urlopen(img['src'], timeout=10, context=ssl.create_default_context()).read())
+                    fo.write(urlopen(img['src'], timeout=10).read())
                 img['src'] = os.path.join(image_path, img_filename)
             else:
                 print(f'Removing image: unable to determine filename:\n\t{img}')
@@ -221,6 +230,11 @@ def parse_args():
                         default=None,
                         help='Delay in seconds imposed between urlopen calls to prevent hitting site rate limit',
                         )
+    parser.add_argument('--cafile', 
+                        type=str,
+                        default=None,
+                        help='Default cafile to use w/ ssl (only use if getting ssl errors when using system CA)',
+                        )
 
     # Default output: all content in a single book
     # Other options:
@@ -248,9 +262,20 @@ def parse_args():
                               )
 
     args = parser.parse_args()
+
+    # Configure rate-limited urlopen:
+    limiter_args = dict()
+    urlopen_args = dict()
+    urlopen_args['timeout'] = 5.0 # default urlopen timeout; overridden to 10.0 for images
+    urlopen_args['context'] = ssl.create_default_context()
+    limiter_args['default_kwargs'] = urlopen_args
     if args.rate_limit:
-        global urlopen
-        urlopen = RateLimited(_urlopen, limit=args.rate_limit)
+        limiter_args['limit'] = args.rate_limit
+    if args.cafile:
+        limiter_args['default_kwargs']['cafile'] = args.cafile
+    global urlopen
+    urlopen = RateLimited(_urlopen, **limiter_args)
+
     return args
 
 
