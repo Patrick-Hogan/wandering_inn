@@ -212,11 +212,11 @@ def parse_args():
     return args
 
 
-def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
+def get_toc(toc_url=r'https://wanderinginn.com/table-of-contents/'):
     page = urlopen(toc_url)
     soup = BeautifulSoup(page, 'lxml')
 
-    index = []
+    toc = []
     for volume_wrapper in soup.find_all('div', {'class': 'volume-wrapper'}):
         wrapper_id = volume_wrapper.get('id')
         try:
@@ -225,20 +225,13 @@ def get_index(toc_url=r'https://wanderinginn.com/table-of-contents/'):
             print(f"Unable to get volume from volume wrapper id: {wrapper_id}")
             continue
 
-        for chapter_cell in volume_wrapper.find_all('div', {'class': 'body-web table-cell'}):
-            chapters = [Chapter(link['href'], link.text, volume, index)
-                        for index, link in enumerate(chapter_cell.find_all('a', href=True))]
+        for index, chapter_cell in enumerate(volume_wrapper.find_all('div', {'class': 'body-web table-cell'})):
+            chapters = [Chapter(link['href'], link.text, volume, index + inner)
+                        for inner, link in enumerate(chapter_cell.find_all('a', href=True))]
             if len(chapters) != 1:
                 print(f"Unexpected results for chapter cell: {chapter_cell}, {chapters}")
-            index.extend(chapters)
-    return index
-
-# hacky way to write index for testing with project gutenberg's ebookmaker; not currently used
-def write_index(index, fh):
-    fh.write(index[0]._HTML_HEADER)
-    for c in index:
-        fh.write(f'<h1><a href="{c.filename}">{c.name}</a></h1>\n')
-    fh.write('</body>\n</html>')
+            toc.extend(chapters)
+    return toc 
 
 def create_cover_image(base_image, title, subtitle=None, outdir=None):
     if outdir is None:
@@ -279,7 +272,7 @@ def get_book(ebook_data,
              ):
 
     if index is None:
-        index = get_index()
+        index = get_toc()
 
     if chapter is not None:
         #subtitle = f'Volume {chapter.volume:02d}.{chapter.index:03d} - Chapter {chapter.name}'
@@ -319,31 +312,31 @@ def main():
     with open('the_wandering_inn.json') as fh:
         ebook_data = json.load(fh)
 
-    full_index = get_index()
+    full_toc = get_toc()
 
-    # trim the full_index to only chapters that should be included
+    # trim the full_toc to only chapters that should be included
     # By default, everything is included
     # If user passed either volume or chapter arguments, include only the specified volume(s) and
     # chapter(s) (e.g., if volume == [1, 3] and chapter == 'latest', include all chapters that are
     # in volume 1 or 3 and the latest published chapter)
-    index = []
+    toc = []
     if not args.chapter and not args.volume:
-        index = full_index
+        index = full_toc
         args.volume = sorted(set((c.volume for c in index)))
     else:
         chapters = set()
         for chapter_title in args.chapter:
             if chapter_title == 'latest':
-                chapters.add(full_index[-1])
+                chapters.add(full_toc[-1])
             else:
                 try:
-                    chapters.add([c for c in full_index if c.name == chapter_title][-1])
+                    chapters.add([c for c in full_toc if c.name == chapter_title][-1])
                 except Exception as error:
                     print(f'Unable to find matching chapter for {chapter_title}: {error}')
         if args.chapter and not chapters:
             raise Exception('No listed chapters were found!')
         if args.volume:
-            for c in full_index:
+            for c in full_toc:
                 if c.volume in args.volume:
                     chapters.add(c)
         index = sorted(list(chapters))
