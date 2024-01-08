@@ -11,9 +11,11 @@ import json
 import os
 import sys
 import re
+import time
 from copy import deepcopy
 from pprint import pprint
-from urllib.request import URLError, urlopen
+from urllib.request import URLError
+from urllib.request import urlopen as _urlopen
 
 from bs4 import BeautifulSoup
 from tqdm import tqdm
@@ -45,6 +47,36 @@ def get_semantic_color_from_hex(hex, spec='css3'):
                 mindist = d
                 semantic_color = cname
     return semantic_color
+
+
+class RateLimited:
+    """Simple wrapper class to delay arbitrary function calls for a specific time
+
+    Attempting to avoid triggering IP ban for hitting website too quickly when scraping. Decrease
+    time at your own risk.
+    """
+
+    def __init__(self, function, limit=60):
+        self.function = function
+        self.limit = limit # limit calls to 1x/min to try to avoid tripping IP ban
+        self._last_called = 0 # no limit on first call
+
+    def __call__(self, *args, **kwargs):
+        next_call = self._last_called + self.limit
+        delay = next_call - time.time()
+        if 0 < delay:
+            print(f'Delaying call to {self.function} for {delay} s due to limit {self.limit} s')
+            time.sleep(delay)
+        self._last_called = time.time()
+        return self.function(*args, **kwargs)
+
+    def set_limit(self, limit):
+        if 0 <= limit:
+            self.limit = limit
+
+
+# Replace urlopen with a rate limited version:
+urlopen = RateLimited(_urlopen)
 
 
 class Chapter:
@@ -182,6 +214,12 @@ def parse_args():
                         nargs='+',
                         help='Chapter(s) to get for ebook (default: all; if volume specified, default is all in volume(s) specified))',
                         )
+    parser.add_argument('--rate-limit',
+                        dest='rate_limit',
+                        type=int,
+                        default=None,
+                        help='Delay in seconds imposed between urlopen calls to prevent hitting site rate limit',
+                        )
 
     # Default output: all content in a single book
     # Other options:
@@ -209,6 +247,9 @@ def parse_args():
                               )
 
     args = parser.parse_args()
+    if args.rate_limit:
+        global urlopen
+        urlopen = RateLimited(_urlopen, limit=args.rate_limit)
     return args
 
 
