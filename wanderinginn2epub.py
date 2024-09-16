@@ -50,36 +50,6 @@ def get_semantic_color_from_hex(hex, spec='css3'):
     return semantic_color
 
 
-class RateLimited:
-    """Simple wrapper class to delay arbitrary function calls for a specific time
-
-    Attempting to avoid triggering IP ban for hitting website too quickly when scraping. Decrease
-    time at your own risk.
-    """
-
-    def __init__(self, function, limit=60):
-        self.function = function
-        self.limit = limit # limit calls to 1x/min to try to avoid tripping IP ban
-        self._last_called = 0 # no limit on first call
-
-    def __call__(self, *args, **kwargs):
-        next_call = self._last_called + self.limit
-        delay = next_call - time.time()
-        if 0 < delay:
-            print(f'Delaying call to {self.function} for {delay} s due to limit {self.limit} s')
-            time.sleep(delay)
-        self._last_called = time.time()
-        return self.function(*args, **kwargs)
-
-    def set_limit(self, limit):
-        if 0 <= limit:
-            self.limit = limit
-
-
-# Replace urlopen with a rate limited version:
-urlopen = RateLimited(_urlopen)
-
-
 class Chapter:
     _HTML_HEADER = '''<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11\
     /DTD/xhtml11.dtd">
@@ -106,10 +76,7 @@ class Chapter:
         self.filename = f'wandering_inn-{self.volume:02d}.{self.index:03d}-{self.name}.html'
 
     def get_page(self):
-        if self.url.startswith('http'):
-            return urlopen(self.url, timeout=5)
-        else:
-            return urlopen('https://wanderinginn.com/' + self.url, timeout=5)
+        raise NotImplemented
 
     def save(self, stream=sys.stdout, strip_color=False, image_path='./images'):
         p = self.get_page()
@@ -142,23 +109,23 @@ class Chapter:
                     span.append(f'|{color}>')
                     span.unwrap() # bs4 method for replaceWithChildren
 
-        # Download and replace image urls with local references:
-        for img in contents.find_all('img'):
-            img_filename = None
-            try:
-                img_filename = os.path.split(img['data-orig-file'])[1]
-            except KeyError:
-                try:
-                    # data-orig-file not specified. Try using src end of path and stripping off any html params:
-                    img_filename = os.path.split(img['src'])[1].partition('?')[0]
-                except KeyError:
-                    pass
-            if img_filename:
-                with open(os.path.join(image_path, img_filename), 'wb') as fo:
-                    fo.write(urlopen(img['src'], timeout=10, context=ssl.create_default_context()).read())
-                img['src'] = os.path.join(image_path, img_filename)
-            else:
-                print(f'Removing image: unable to determine filename:\n\t{img}')
+        ## Download and replace image urls with local references:
+        #for img in contents.find_all('img'):
+        #    img_filename = None
+        #    try:
+        #        img_filename = os.path.split(img['data-orig-file'])[1]
+        #    except KeyError:
+        #        try:
+        #            # data-orig-file not specified. Try using src end of path and stripping off any html params:
+        #            img_filename = os.path.split(img['src'])[1].partition('?')[0]
+        #        except KeyError:
+        #            pass
+        #    if img_filename:
+        #        with open(os.path.join(image_path, img_filename), 'wb') as fo:
+        #            fo.write(urlopen(img['src'], timeout=10, context=ssl.create_default_context()).read())
+        #        img['src'] = os.path.join(image_path, img_filename)
+        #    else:
+        #        print(f'Removing image: unable to determine filename:\n\t{img}')
 
         title = page.find('h1', {'class': 'entry-title'}).text.strip()
         h1 = page.new_tag('h1', id=self.index)
@@ -215,12 +182,6 @@ def parse_args():
                         nargs='+',
                         help='Chapter(s) to get for ebook (default: all; if volume specified, default is all in volume(s) specified))',
                         )
-    parser.add_argument('--rate-limit',
-                        dest='rate_limit',
-                        type=int,
-                        default=None,
-                        help='Delay in seconds imposed between urlopen calls to prevent hitting site rate limit',
-                        )
 
     # Default output: all content in a single book
     # Other options:
@@ -247,33 +208,11 @@ def parse_args():
                               help='Title to use for single-output file (default: "The Wandering Inn")',
                               )
 
-    args = parser.parse_args()
-    if args.rate_limit:
-        global urlopen
-        urlopen = RateLimited(_urlopen, limit=args.rate_limit)
-    return args
+    return parser.parse_args()
 
 
-def get_toc(toc_url=r'https://wanderinginn.com/table-of-contents/'):
-    page = urlopen(toc_url)
-    soup = BeautifulSoup(page, 'lxml')
-
-    toc = []
-    for volume_wrapper in soup.find_all('div', {'class': 'volume-wrapper'}):
-        wrapper_id = volume_wrapper.get('id')
-        try:
-            volume = int(wrapper_id.replace("vol-","").strip())
-        except ValueError:
-            print(f"Unable to get volume from volume wrapper id: {wrapper_id}")
-            continue
-
-        for index, chapter_cell in enumerate(volume_wrapper.find_all('div', {'class': 'body-web table-cell'})):
-            chapters = [Chapter(link['href'], link.text, volume, index + inner)
-                        for inner, link in enumerate(chapter_cell.find_all('a', href=True))]
-            if len(chapters) != 1:
-                print(f"Unexpected results for chapter cell: {chapter_cell}, {chapters}")
-            toc.extend(chapters)
-    return toc 
+def get_toc():
+    raise NotImplemented
 
 def create_cover_image(base_image, title, subtitle=None, outdir=None):
     if outdir is None:
